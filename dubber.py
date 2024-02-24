@@ -1,20 +1,12 @@
 from pydub import AudioSegment
 from google.cloud import texttospeech
-# from google.cloud import translate_v2 as translate
 from googletrans import Translator
-# from gtts import gTTS
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
-from moviepy.video.tools.subtitles import SubtitlesClip, TextClip
 from typing import NamedTuple, List, Optional, Sequence
 from gender.test import predict_gender
 import os
 import shutil
-import ffmpeg
-import time
-import sys
-import tempfile
 from dotenv import load_dotenv
-import html
 import pvleopard
 load_dotenv()
 
