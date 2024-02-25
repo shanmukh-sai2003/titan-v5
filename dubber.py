@@ -8,23 +8,15 @@ from pyannote.audio import Pipeline
 import torch
 import os
 import shutil
-from dotenv import load_dotenv
 import pvleopard
 import whisper
 
-load_dotenv()
-
-# leopard = pvleopard.create(access_key=os.environ["PV_ACCESS_KEY"], enable_automatic_punctuation=True, enable_diarization=True)
 
 def extract_audio(videoPath, outputPath):
     video = VideoFileClip(videoPath)
     video.audio.write_audiofile(outputPath)
 
 def speech_to_text(audioFilePath):
-    # transcript, words = leopard.process_file(audioFilePath)
-    # print(transcript)
-    # print(words)
-
     audio = whisper.load_audio(audioFilePath)
     model = whisper.load_model("base.en")
     text = model.transcribe(audio, word_timestamps=True)
