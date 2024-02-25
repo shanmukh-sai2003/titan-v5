@@ -4,23 +4,57 @@ from googletrans import Translator
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
 from typing import NamedTuple, List, Optional, Sequence
 from gender.test import predict_gender
+from pyannote.audio import Pipeline
+import torch
 import os
 import shutil
 from dotenv import load_dotenv
 import pvleopard
+import whisper
+
 load_dotenv()
 
-leopard = pvleopard.create(access_key=os.environ["PV_ACCESS_KEY"], enable_automatic_punctuation=True, enable_diarization=True)
+# leopard = pvleopard.create(access_key=os.environ["PV_ACCESS_KEY"], enable_automatic_punctuation=True, enable_diarization=True)
 
 def extract_audio(videoPath, outputPath):
     video = VideoFileClip(videoPath)
     video.audio.write_audiofile(outputPath)
 
 def speech_to_text(audioFilePath):
-    transcript, words = leopard.process_file(audioFilePath)
-    print(transcript)
-    print(words)
+    # transcript, words = leopard.process_file(audioFilePath)
+    # print(transcript)
+    # print(words)
 
+    audio = whisper.load_audio(audioFilePath)
+    model = whisper.load_model("base.en")
+    text = model.transcribe(audio, word_timestamps=True)
+    print(text['text'])
+
+    pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization", use_auth_token="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")
+    diarization = pipeline(audioFilePath)
+
+    print(diarization)
+    words = []
+    for i in text['segments']:
+        words += i['words']
+
+    speakers = []
+    for turn, _, speaker in diarization.itertracks(yield_label=True):
+        temp = {}
+        temp['start'] = turn.start
+        temp['end'] = turn.end
+        temp['speaker'] = int(speaker[8:])
+        speakers.append(temp)
+
+    i = 0
+    for word in words:
+        if word['start'] < speakers[i]['end']:
+            word['speaker'] = speakers[i]['speaker']
+        else:
+            i += 1
+            word['speaker'] = speakers[i]['speaker']
+
+    print(words)
     sentences = extract_speaker_sentence(words, audioFilePath)
     print(sentences)
     return sentences
@@ -31,15 +65,15 @@ def extract_speaker_sentence(words, audioPath):
 
     speakerGender = {}
     for i, word in enumerate(words):
-        wordText = word.word
+        wordText = word['word']
         if not sentence:
             sentence = {
                 'text': [wordText],
-                'speaker': word.speaker_tag,
-                'start_time': word.start_sec,
-                'end_time': word.end_sec,
+                'speaker': word['speaker'],
+                'start_time': word['start'],
+                'end_time': word['end'],
             }
-        elif word.speaker_tag != sentence['speaker']:
+        elif word['speaker'] != sentence['speaker']:
             if not sentence['speaker'] in speakerGender:
                 path = generate_audio_path(sentence['start_time'], sentence['end_time'], audioPath)
                 speakerGender[sentence['speaker']] = predict_gender(path)
@@ -50,15 +84,15 @@ def extract_speaker_sentence(words, audioPath):
             sentences.append(sentence)
             sentence = {
                 'text': [wordText],
-                'speaker': word.speaker_tag,
-                'start_time': word.start_sec,
-                'end_time': word.end_sec
+                'speaker': word['speaker'],
+                'start_time': word['start'],
+                'end_time': word['end']
             }
         else:
             sentence['text'].append(wordText)
-            sentence['end_time'] = word.end_sec           
+            sentence['end_time'] = word['end']          
 
-        if i+1 < len(words) and words[i+1].start_sec - word.end_sec > 1.0:
+        if i+1 < len(words) and words[i+1]['start'] - word['end'] > 1.0:
             if not sentence['speaker'] in speakerGender:
                 path = generate_audio_path(sentence['start_time'], sentence['end_time'], audioPath)
                 speakerGender[sentence['speaker']] = predict_gender(path)
