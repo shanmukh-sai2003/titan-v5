@@ -1,14 +1,13 @@
 from pydub import AudioSegment
 from google.cloud import texttospeech
-from googletrans import Translator
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip
 from typing import NamedTuple, List, Optional, Sequence
 from gender.test import predict_gender
 from pyannote.audio import Pipeline
+from translate import translate
 import torch
 import os
 import shutil
-import pvleopard
 import whisper
 
 
@@ -118,11 +117,27 @@ def generate_audio_path(startTime, endTime, audioPath):
     return destPath
 
 def translate_text(input, targetLang):
-    target = targetLang.split("-")[0]
-    translater = Translator()
-    out = translater.translate(input, dest=target)
-    print(out.text)
-    return out.text
+    
+    if targetLang == "te-IN":
+        targetLang = "tel_Telu"
+    elif targetLang == "hi-IN":
+        targetLang = "hin-Deva"
+    elif targetLang == "pa-IN":
+        targetLang = "pan_Guru"
+    elif targetLang == "ta-IN":
+        targetLang = "tam_Taml"
+    elif targetLang == "mr-IN":
+        targetLang = "mar_Deva"
+    elif targetLang == "bn-IN":
+        targetLang = "ben_Beng"
+    elif targetLang == "gu_IN":
+        targetLang = "guj_Gujr"
+    
+
+    text = translate(input, targetLang)
+    print(text)
+    return text
+    
 
 def speak(text, languageCode, speakerGender, speakingRate=1):
     client = texttospeech.TextToSpeechClient()
@@ -172,8 +187,8 @@ def text_to_speech(text, languageCode, durationSecs, gender):
         currentDuration = find_duration(baseAudio)
         print(currentDuration, durationSecs)
 
-        if abs(currentDuration - durationSecs) < 0.5:
-            break
+        # if abs(currentDuration - durationSecs) < 0.5:
+        #     break
 
         ratio = currentDuration / durationSecs
         ratio = min(max(ratio, min_rate), max_rate)
